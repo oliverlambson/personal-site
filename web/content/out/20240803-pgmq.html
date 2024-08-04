@@ -1,0 +1,935 @@
+<style>
+  pre > code.sourceCode {
+    white-space: pre;
+    position: relative;
+  }
+  pre > code.sourceCode > span {
+    line-height: 1.25;
+  }
+  pre > code.sourceCode > span:empty {
+    height: 1.2em;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+  code.sourceCode > span {
+    color: inherit;
+    text-decoration: inherit;
+  }
+  div.sourceCode {
+    margin: 1em 0;
+  }
+  pre.sourceCode {
+    margin: 0;
+  }
+  @media screen {
+    div.sourceCode {
+      overflow: auto;
+    }
+  }
+  @media print {
+    pre > code.sourceCode {
+      white-space: pre-wrap;
+    }
+    pre > code.sourceCode > span {
+      display: inline-block;
+      text-indent: -5em;
+      padding-left: 5em;
+    }
+  }
+  pre.numberSource code {
+    counter-reset: source-line 0;
+  }
+  pre.numberSource code > span {
+    position: relative;
+    left: -4em;
+    counter-increment: source-line;
+  }
+  pre.numberSource code > span > a:first-child::before {
+    content: counter(source-line);
+    position: relative;
+    left: -1em;
+    text-align: right;
+    vertical-align: baseline;
+    border: none;
+    display: inline-block;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    padding: 0 4px;
+    width: 4em;
+    color: #5f5f5f;
+  }
+  pre.numberSource {
+    margin-left: 3em;
+    border-left: 1px solid #5f5f5f;
+    padding-left: 4px;
+  }
+  div.sourceCode {
+    color: #ffffff;
+    background-color: #262626;
+  }
+  @media screen {
+    pre > code.sourceCode > span > a:first-child::before {
+      text-decoration: underline;
+    }
+  }
+  code span.al {
+    color: #ff005f;
+    font-weight: bold;
+  } /* Alert */
+  code span.an {
+    color: #62d8f1;
+    font-weight: bold;
+    font-style: italic;
+  } /* Annotation */
+  code span.at {
+    color: #a4e400;
+  } /* Attribute */
+  code span.bn {
+    color: #ffff87;
+  } /* BaseN */
+  code span.bu {
+    color: #a4e400;
+  } /* BuiltIn */
+  code span.cf {
+    color: #fc1a70;
+    font-weight: bold;
+  } /* ControlFlow */
+  code span.ch {
+    color: #af87ff;
+  } /* Char */
+  code span.cn {
+    color: #af87ff;
+  } /* Constant */
+  code span.co {
+    color: #8a8a8a;
+    font-style: italic;
+  } /* Comment */
+  code span.cv {
+    color: #8a8a8a;
+    font-weight: bold;
+    font-style: italic;
+  } /* CommentVar */
+  code span.do {
+    color: #fc1a70;
+    font-style: italic;
+  } /* Documentation */
+  code span.dt {
+    color: #af87ff;
+  } /* DataType */
+  code span.dv {
+    color: #ffff87;
+  } /* DecVal */
+  code span.er {
+    color: #ffffff;
+    background-color: #ff005f;
+    font-weight: bold;
+  } /* Error */
+  code span.ex {
+  } /* Extension */
+  code span.fl {
+    color: #af87ff;
+  } /* Float */
+  code span.fu {
+    color: #a4e400;
+  } /* Function */
+  code span.im {
+    color: #fc1a70;
+    font-weight: bold;
+  } /* Import */
+  code span.in {
+    color: #62d8f1;
+    font-weight: bold;
+    font-style: italic;
+  } /* Information */
+  code span.kw {
+    color: #fc1a70;
+    font-weight: bold;
+  } /* Keyword */
+  code span.op {
+    color: #fc1a70;
+  } /* Operator */
+  code span.ot {
+    color: #fc1a70;
+  } /* Other */
+  code span.pp {
+    color: #fc1a70;
+  } /* Preprocessor */
+  code span.sc {
+    color: #af87ff;
+  } /* SpecialChar */
+  code span.ss {
+    color: #af87ff;
+  } /* SpecialString */
+  code span.st {
+    color: #ffff87;
+  } /* String */
+  code span.va {
+    color: #62d8f1;
+  } /* Variable */
+  code span.vs {
+    color: #ffff87;
+  } /* VerbatimString */
+  code span.wa {
+    color: #ffff87;
+    font-weight: bold;
+    font-style: italic;
+  } /* Warning */
+</style>
+<h1 id="use-what-you-already-have-building-a-simple-postgres-message-queue">
+  Use what you already have: Building a message queue on Postgres
+</h1>
+<p>August 2024</p>
+<p>
+  See the code at
+  <a
+    href="https://www.github.com/oliverlambson/pgmq"
+    class="text-blue-500 underline underline-offset-2 hover:underline-offset-4"
+    target="\_blank"
+    >github.com/oliverlambson/pgmq</a
+  >.
+</p>
+<p>
+  When you’re building a decently-sized webapp, you will often end up wanting a
+  way to shift work off of your webserver: you don’t want it getting bogged down
+  in “heavy” work, and you don’t want to have to wait for non-critical things to
+  run before you can send a response. Normally, this is done with a message
+  queue: your webserver publishes instructions to somewhere, and you set up
+  another server (a “worker”) that listens for those instructions and does the
+  hard work.
+</p>
+<h2 id="why-this-must-be-a-solved-problem">
+  Why? This must be a solved problem?
+</h2>
+<p>
+  There are lots of solutions to this problem. Most/all are probably better. But
+  I am a meme-driven-developer, so here we are.
+</p>
+<p>
+  Seriously though, the solutions I’m aware of are either overkill: using
+  Rabbit/SQS/etc means I have to maintain another piece of infrastructure, and
+  Celery/Symfony Messenger/whatever else lock me in to a language or
+  framework-specific implementation, which is annoying. I’m already running a
+  Postgres server, can’t I just use that? It only has to be good-enough and I’ll
+  be happy.
+</p>
+<p>
+  <strong
+    >This solution is under 250 lines of Python and SQL, it runs on my existing
+    infrastructure, and is easy to understand.</strong
+  >
+  Maybe one day I’ll need a “proper” solution, but until then this seems fine.
+</p>
+<h2 id="whats-the-simplest-solution">What’s the simplest solution?</h2>
+<p>
+  Add messages to a table. Set up a worker to poll it. Once the work is done,
+  delete the row.
+</p>
+<p>You could have a table called <code>messages</code> that looks like this:</p>
+<div class="max-w-[100vw] overflow-scroll bg-stone-100 px-2 w-fit">
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>message</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "ollie@example.com"
+  }
+}</pre
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "elliot@ecorp.com"
+  }
+}</pre
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "reverse-transaction",
+  "payload": {
+    transaction-id": 7,
+    "reason": "declined"
+  }
+}</pre
+          >
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>And your worker code could be something like this:</p>
+<div class="sourceCode" id="cb1">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="va">True</span>:</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    sleep(<span class="fl">0.1</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;SELECT id, message FROM messages LIMIT 1;&quot;</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">match</span> message.task:</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: send_email(message.payload)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: reverse_transaction(message.payload)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> _: <span class="bu">print</span>(<span class="ss">f&quot;Unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row.<span class="bu">id</span>)</span></code></pre>
+</div>
+<p>
+  This is probably fine, it might even meet the criteria for “good enough”, but
+  it doesn’t feel good. What if my worker fails? What if I want multiple
+  workers? What if I want messages to timeout? What if I want history of
+  messages that were processed? Ew, why are we using polling? How do I know that
+  messages are being processed ok? How will I know when a message fails? How
+  will I know when a message is bad? How do I retry failed messages?
+</p>
+<h2 id="making-it-less-garbage">Making it less garbage</h2>
+<h3 id="polling">Polling</h3>
+<p>
+  Even though the polling is probably the least-bad part, let’s fix that first
+  because it feels the worst. Postgres has a built-in asynchronous notification
+  mechanism with the <code>NOTIFY/LISTEN</code> commands. We can use this to
+  tell our worker when a new message is added to the
+  <code>messages</code> table, and only then do the read the row, meaning we
+  don’t have to constantly poll the table for messages<a
+    href="#1"
+    class="align-top text-xs text-stone-400"
+    >[1]</a
+  >.
+</p>
+<p>
+  We can set up a trigger on the messages table to send the id of the new row
+  whenever one is inserted:
+</p>
+<div class="sourceCode" id="cb2">
+  <pre
+    class="sourceCode sql"
+  ><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> new_message_nofify() RETURNS <span class="kw">trigger</span> <span class="kw">AS</span> $$</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    PERFORM pg_notify(<span class="st">&#39;new_message&#39;</span>, <span class="kw">NEW</span>.<span class="kw">id</span>:<span class="ch">:TEXT</span>);</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> <span class="kw">NEW</span>;</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TRIGGER</span> new_message_trigger</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">AFTER</span> <span class="kw">INSERT</span> <span class="kw">ON</span> messages</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="cf">FOR</span> <span class="kw">EACH</span> <span class="kw">ROW</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">EXECUTE</span> <span class="kw">FUNCTION</span> new_message_nofify();</span></code></pre>
+</div>
+<p>
+  And modify the worker to listen to the <code>new_message</code> channel and
+  run the message processing whenever a notification comes through:
+</p>
+<div class="sourceCode" id="cb3">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> callback(db_conn, payload):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    row_id <span class="op">=</span> <span class="bu">int</span>(payload)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;SELECT message FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">match</span> message.task:</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: send_email(message.payload)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: reverse_transaction(message.payload)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> _: <span class="bu">print</span>(<span class="ss">f&quot;Unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ------- NEW! -------</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>db_conn.add_listener(channel<span class="op">=</span><span class="st">&quot;new_message&quot;</span>, callback<span class="op">=</span>callback)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> asyncio.Event().wait() <span class="co"># block forever so the listener doesn&#39;t close</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co"># ----- end NEW! -----</span></span></code></pre>
+</div>
+<h3 id="locking">Locking</h3>
+<p>
+  Now, imagine things are going well and we have a lot of messages to process:
+  we’re going to need multiple workers. Right now if we have two workers,
+  they’ll both process all the messages, which is not what we want. Let’s mark
+  them as “locked” when they’re being processed, and only allow one worker to
+  process a message at a time. We’ll also give this lock a timeout so the
+  message can escape the worker if it gets stuck.
+</p>
+<p>
+  Modify the <code>messages</code> table to have a
+  <code>lock_expires_at</code> column:
+</p>
+<div class="max-w-[100vw] overflow-scroll bg-stone-100 px-2 w-fit">
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>message</th>
+        <th>lock_expires_at</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "ollie@example.com"
+  }
+}</pre
+          >
+        </td>
+        <td>2024-08-02 14:56:03</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "elliot@ecorp.com"
+  }
+}</pre
+          >
+        </td>
+        <td>null</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "reverse-transaction",
+  "payload": {
+    transaction-id": 7,
+    "reason": "declined"
+  }
+}</pre
+          >
+        </td>
+        <td>null</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>Modify the worker to set the lock when it starts processing a message:</p>
+<div class="sourceCode" id="cb4">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> callback(db_conn, payload):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    row_id <span class="op">=</span> <span class="bu">int</span>(payload)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ------- NEW! -------</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="st">        UPDATE messages</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="st">        SET lock_expires_at = CURRENT_TIMESTAMP + INTERVAL &#39;1 minute&#39;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="st">        WHERE</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="st">          id = $1</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="st">          AND (lock_expires_at IS NULL OR lock_expires_at &lt; CURRENT_TIMESTAMP)</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="st">        RETURNING *;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="st">        &quot;&quot;&quot;</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        row_id,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ----- end NEW! -----</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">match</span> message.task:</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: send_email(message.payload)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: reverse_transaction(message.payload)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> _: <span class="bu">print</span>(<span class="ss">f&quot;Unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>db_conn.add_listener(channel<span class="op">=</span><span class="st">&quot;new_message&quot;</span>, callback<span class="op">=</span>callback)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> asyncio.Event().wait() <span class="co"># block forever so the listener doesn&#39;t close</span></span></code></pre>
+</div>
+<p>
+  By doing an <code>UPDATE</code> with a <code>RETURNING</code> clause, we can
+  ensure the row is only acquired by one worker at a time. If two workers try to
+  acquire the same row at the same time, the one that gets there first will lock
+  the row, and the second will not find the row when it tries to lock it due to
+  the <code>WHERE</code> clause<a
+    href="#2"
+    class="align-top text-xs text-stone-400"
+    >[2]</a
+  >.
+</p>
+<h3 id="history">History</h3>
+<!-- What if I want history of messages that were processed? How do I know that
+messages are being processed ok? -->
+<p>
+  After processing a message, we delete it from the <code>messages</code> table
+  as that is the “live”/“active” queue. We can write the completed messages to a
+  <code>message_archive</code> table.
+</p>
+<div class="max-w-[100vw] overflow-scroll bg-stone-100 px-2 w-fit">
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>message</th>
+        <th>result</th>
+        <th>archived_at</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "ollie@example.com"
+  }
+}</pre
+          >
+        </td>
+        <td>success</td>
+        <td>2024-08-02 14:53:02</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "elliot@ecorp.com"
+  }
+}</pre
+          >
+        </td>
+        <td>success</td>
+        <td>2024-08-02 14:53:05</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "reverse-transaction",
+  "payload": {
+    transaction-id": 7,
+    "reason": "declined"
+  }
+}</pre
+          >
+        </td>
+        <td>failed</td>
+        <td>2024-08-02 14:54:24</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>
+  This is done in a transaction to ensure the delete from
+  <code>messages</code> and the insert to <code>message_archive</code> happen
+  together:
+</p>
+<div class="sourceCode" id="cb5">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> callback(db_conn, payload):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    row_id <span class="op">=</span> <span class="bu">int</span>(payload)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="st">        UPDATE messages</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="st">        SET lock_expires_at = CURRENT_TIMESTAMP + INTERVAL &#39;1 minute&#39;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="st">        WHERE</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="st">          id = $1</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="st">          AND (lock_expires_at IS NULL OR lock_expires_at &lt; CURRENT_TIMESTAMP)</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="st">        RETURNING *;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="st">        &quot;&quot;&quot;</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        row_id,</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">match</span> message.task:</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: send_email(message.payload)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: reverse_transaction(message.payload)</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> _: <span class="bu">print</span>(<span class="ss">f&quot;Unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ------- NEW! -------</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> db_conn.transaction():</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        db_conn.execute(</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;INSERT INTO message_archive (message, result) VALUES ($1, &#39;success&#39;);&quot;</span>,</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>            message,</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ----- end NEW! -----</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>db_conn.add_listener(channel<span class="op">=</span><span class="st">&quot;new_message&quot;</span>, callback<span class="op">=</span>callback)</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> asyncio.Event().wait() <span class="co"># block forever so the listener doesn&#39;t close</span></span></code></pre>
+</div>
+<h3 id="dead-messages">Dead messages</h3>
+<!-- How will I know when a message fails? How will I know when a message is bad? How
+do I retry failed messages? -->
+<p>
+  Similar to the archive table, we can have a <code>failed_messages</code> table
+  to store messages that failed to be processed. Unlike the archive table, these
+  are considered “bad”: the messages are not in a terminal state—we need to
+  decide what to do with them. It’s up to you to decide if they need to be
+  retried, or fixed and re-added to the queue, or if they can be ignored and
+  written to the archive table.
+</p>
+<div class="max-w-[100vw] overflow-scroll bg-stone-100 px-2 w-fit">
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>message</th>
+        <th>failure_reason</th>
+        <th>details</th>
+        <th>failed_at</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "receive-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "ollie@example.com"
+  }
+}</pre
+          >
+        </td>
+        <td>rejected</td>
+        <td>unknown task: receive-email</td>
+        <td>2024-08-02 14:53:02</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "send-email",
+  "payload": {
+    "kind": "account-statement",
+    "to": "elliot@ecorp.com"
+  }
+}</pre
+          >
+        </td>
+        <td>runtime_error</td>
+        <td>Customer not found. Traceback: …</td>
+        <td>2024-08-02 14:53:05</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>
+          <pre class="my-0 p-0">
+{
+  "task": "reverse-transaction",
+  "payload": {
+    transaction-id": 7,
+    "reason": "declined"
+  }
+}</pre
+          >
+        </td>
+        <td>lock_expired</td>
+        <td>null</td>
+        <td>2024-08-02 14:54:24</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>
+  Now when deleting from <code>messages</code> we insert into the archive if
+  successful or the <code>message_dead</code> table if we had an error:
+</p>
+<div class="sourceCode" id="cb6">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> callback(db_conn, payload):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    row_id <span class="op">=</span> <span class="bu">int</span>(payload)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="st">        UPDATE messages</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="st">        SET lock_expires_at = CURRENT_TIMESTAMP + INTERVAL &#39;1 minute&#39;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="st">        WHERE</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="st">          id = $1</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="st">          AND (lock_expires_at IS NULL OR lock_expires_at &lt; CURRENT_TIMESTAMP)</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="st">        RETURNING *;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="st">        &quot;&quot;&quot;</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        row_id,</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">match</span> message.task:</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: status, err <span class="op">=</span> send_email(message.payload)</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: status, err <span class="op">=</span> reverse_transaction(message.payload)</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> _: status, err <span class="op">=</span> <span class="st">&quot;rejected&quot;</span>, <span class="ss">f&quot;unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> db_conn.transaction():</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ------- NEW! -------</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> status <span class="op">==</span> <span class="st">&quot;success&quot;</span>:</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>            db_conn.execute(</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;INSERT INTO message_archive (message, result) VALUES ($1, &#39;success&#39;);&quot;</span>,</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>                message,</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>            db_conn.execute(</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;&quot;&quot;INSERT INTO message_dead (message, failure_reason, details)</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="st">                VALUES ($1, $2, $3);&quot;&quot;&quot;</span>,</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>                message,</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>                status,</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>                err,</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ----- end NEW! -----</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>db_conn.add_listener(channel<span class="op">=</span><span class="st">&quot;new_message&quot;</span>, callback<span class="op">=</span>callback)</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> asyncio.Event().wait() <span class="co"># block forever so the listener doesn&#39;t close</span></span></code></pre>
+</div>
+<h3 id="failed-workers">Failed workers</h3>
+<p>
+  Our workers rely of the <code>NOTIFY</code> events to pick up expired
+  messages. This means we need to re-notify them of existing messages that have
+  expired locks. We can use <code>pg_cron</code> to check every minute for
+  expired locks and send the notifications.
+</p>
+<div class="sourceCode" id="cb7">
+  <pre
+    class="sourceCode sql"
+  ><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> expired_lock_renotify() RETURNS void <span class="kw">AS</span> $$</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">DECLARE</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    message_record <span class="dt">RECORD</span>;</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">FOR</span> message_record <span class="kw">IN</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="kw">id</span> <span class="kw">FROM</span> messages <span class="kw">WHERE</span> lock_expired <span class="op">&lt;</span> NOW()</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">LOOP</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        PERFORM pg_notify(<span class="st">&#39;new_message&#39;</span>, message_record.<span class="kw">id</span>:<span class="ch">:TEXT</span>);</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="cf">LOOP</span>;</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> cron.schedule(</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;messages:expired_lock_renotify&#39;</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;* * * * *&#39;</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    $$ <span class="kw">SELECT</span> expired_lock_renotify(); $$</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>);</span></code></pre>
+</div>
+<p>
+  While we’re at it, we should also make sure a worker doesn’t continue to
+  process a job if it exceeds the timeout, even if it’s not hit an error<a
+    href="#3"
+    class="align-top text-xs text-stone-400"
+    >[3]</a
+  >.
+</p>
+<div class="sourceCode" id="cb8">
+  <pre
+    class="sourceCode python"
+  ><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> callback(db_conn, payload):</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    row_id <span class="op">=</span> <span class="bu">int</span>(payload)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> db_conn.fetch_one(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="st">        UPDATE messages</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="st">        SET lock_expires_at = CURRENT_TIMESTAMP + INTERVAL &#39;1 minute&#39;</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="st">        WHERE</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="st">          id = $1</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="st">          AND (lock_expires_at IS NULL OR lock_expires_at &lt; CURRENT_TIMESTAMP)</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="st">        RETURNING *;</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="st">        &quot;&quot;&quot;</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        row_id,</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> row <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> row.message</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ------- NEW! -------</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">async</span> <span class="cf">with</span> asyncio.timeout(<span class="dv">60</span>):</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">match</span> message.task:</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>                <span class="cf">case</span> <span class="st">&quot;send-email&quot;</span>: status, err <span class="op">=</span> send_email(message.payload)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>                <span class="cf">case</span> <span class="st">&quot;reverse-transaction&quot;</span>: status, err <span class="op">=</span> reverse_transaction(message.payload)</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>                <span class="cf">case</span> _: status, err <span class="op">=</span> <span class="st">&quot;rejected&quot;</span>, <span class="ss">f&quot;unknown task: </span><span class="sc">{</span>message<span class="sc">.</span>task<span class="sc">}</span><span class="ss">&quot;</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> asyncio.<span class="pp">TimeoutError</span> <span class="im">as</span> e:</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>        status, err <span class="op">=</span> <span class="st">&quot;lock_expired&quot;</span>, <span class="st">&quot;still processing at lock expiry time&quot;</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ----- end NEW! -----</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> db_conn.transaction():</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>        db_conn.execute(<span class="st">&quot;DELETE FROM messages WHERE id = $1;&quot;</span>, row_id)</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> status <span class="op">==</span> <span class="st">&quot;success&quot;</span>:</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>            db_conn.execute(</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;INSERT INTO message_archive (message, result) VALUES ($1, &#39;success&#39;);&quot;</span>,</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>                message,</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>            db_conn.execute(</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;&quot;&quot;INSERT INTO message_dead (message, failure_reason, details)</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a><span class="st">                VALUES ($1, $2, $3);&quot;&quot;&quot;</span>,</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>                message,</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>                status,</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>                err,</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>db_conn.add_listener(channel<span class="op">=</span><span class="st">&quot;new_message&quot;</span>, callback<span class="op">=</span>callback)</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> asyncio.Event().wait() <span class="co"># block forever so the listener doesn&#39;t close</span></span></code></pre>
+</div>
+<h3 id="error-visibility">Error visibility</h3>
+<p>
+  I really hate silent failures. Right now, if a message fails and is put in the
+  <code>message_dead</code> queue, or a lock times out and a message has to be
+  re-processed, or no workers are picking up messages, we have no way of knowing
+  about it.
+</p>
+<p>
+  I don’t want these notifications/logs to be dependent on my worker code,
+  because I want to know about the health of the system which includes when the
+  workers are unhealthy. We’re relying on Postgres as a single point of failure
+  here already (if our database goes down we have bigger problems), so we can
+  use it to do the monitoring too.
+</p>
+<p>
+  We can emit a warning log to the Postgres logs when re-notifying for expired
+  locks:
+</p>
+<div class="sourceCode" id="cb9">
+  <pre
+    class="sourceCode sql"
+  ><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> expired_lock_renotify() RETURNS void <span class="kw">AS</span> $$</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">DECLARE</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    message_record <span class="dt">RECORD</span>;</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">FOR</span> message_record <span class="kw">IN</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="kw">id</span> <span class="kw">FROM</span> messages <span class="kw">WHERE</span> lock_expired <span class="op">&lt;</span> NOW()</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">LOOP</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">--- NEW ---</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        RAISE WARNING <span class="st">&#39;Error: message_record.id=% lock expired, re-notifying&#39;</span>, <span class="kw">NEW</span>.<span class="kw">id</span>;</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">--- end NEW ---</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        PERFORM pg_notify(<span class="st">&#39;new_message&#39;</span>, message_record.<span class="kw">id</span>:<span class="ch">:TEXT</span>);</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="cf">LOOP</span>;</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> cron.schedule(</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;messages:expired_lock_cleanup&#39;</span>,</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;* * * * *&#39;</span>,</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    $$ <span class="kw">SELECT</span> expired_lock_cleanup(); $$</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>);</span></code></pre>
+</div>
+<p>
+  We can do the same whenever a message is inserted into the
+  <code>message_dead</code> table:
+</p>
+<div class="sourceCode" id="cb10">
+  <pre
+    class="sourceCode sql"
+  ><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> dead_message_nofify() RETURNS <span class="kw">trigger</span> <span class="kw">AS</span> $$</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    RAISE WARNING <span class="st">&#39;Error: message_dead.id=% has result=%&#39;</span>, <span class="kw">NEW</span>.<span class="kw">id</span>, <span class="kw">NEW</span>.result;</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- we could set up workers to automatically try reprocess these messages:</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    PERFORM pg_notify(<span class="st">&#39;dead_message&#39;</span>, <span class="kw">NEW</span>.<span class="kw">id</span>:<span class="ch">:TEXT</span>);</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> <span class="kw">NEW</span>;</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TRIGGER</span> dead_message_trigger</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="kw">AFTER</span> <span class="kw">INSERT</span> <span class="kw">ON</span> message_dead</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="cf">FOR</span> <span class="kw">EACH</span> <span class="kw">ROW</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="kw">EXECUTE</span> <span class="kw">FUNCTION</span> dead_message_nofify();</span></code></pre>
+</div>
+<p>
+  And we can do the same when a message hasn’t been picked up by a worker at
+  all:
+</p>
+<div class="sourceCode" id="cb11">
+  <pre
+    class="sourceCode sql"
+  ><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> non_locked_notify() RETURNS void <span class="kw">AS</span> $$</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">DECLARE</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    message <span class="dt">RECORD</span>;</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">FOR</span> message <span class="kw">IN</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="kw">id</span> <span class="kw">FROM</span> messages</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">WHERE</span> lock_expires_at <span class="kw">IS</span> <span class="kw">NULL</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>          <span class="kw">AND</span> date_trunc(<span class="st">&#39;minute&#39;</span>, created_at) <span class="op">&lt;</span> date_trunc(<span class="st">&#39;minute&#39;</span>, now())</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">LOOP</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        RAISE WARNING <span class="st">&#39;Error: message.id=% not picked up, re-notifying&#39;</span>, message.<span class="kw">id</span>;</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        PERFORM pg_notify(<span class="st">&#39;new_message&#39;</span>, message.<span class="kw">id</span>:<span class="ch">:TEXT</span>);</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="cf">LOOP</span>;</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> cron.schedule(</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;messages:non_locked_notify&#39;</span>,</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;* * * * *&#39;</span>,</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    $$ <span class="kw">SELECT</span> non_locked_notify(); $$</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>);</span></code></pre>
+</div>
+<h2 id="is-that-good-enough">Is that good enough?</h2>
+<p>I think so.</p>
+<p>
+  Checkout the
+  <a
+    href="https://www.github.com/oliverlambson/pgmq"
+    class="text-blue-500 underline underline-offset-2 hover:underline-offset-4"
+    target="_blank"
+    >full code on github</a
+  >, it’s more complete and it actually runs.
+</p>
+<hr />
+<p>
+  <span id="1">[1]</span> Why not just use these as our queue? We could, but: no
+  persistence, we don’t get any of the other stuff we do later on in this
+  article, and the payload size is limited to 8kB (what if we want big
+  messages?).
+</p>
+<p>
+  <span id="2">[2]</span> We can make this more efficient by doing a
+  <code>SELECT ... FOR UPDATE NOWAIT</code> before the
+  <code>UPDATE ... RETURNING</code> inside a transaction, but this simpler way
+  is fine too.
+</p>
+<p>
+  <span id="3">[3]</span> This will prevent a worker from holding onto a message
+  forever if it’s stuck in a loop, but it will also prevent a worker from
+  processing a message that takes a long time—in that case we would need to
+  increase the timeout.
+</p>

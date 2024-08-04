@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Oliver Lambson?</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp,container-queries"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              clifford: "#da373d",
+            },
+          },
+        },
+      };
+    </script>
+    <style type="text/tailwindcss">
+      @layer utilities {
+        .content-auto {
+          content-visibility: auto;
+        }
+      }
+    </style>
+  </head>
+  <body class="flex flex-col min-h-screen">
+    <header class="sm:pl-12 px-2">
+      <nav>
+        <ol class="flex space-x-4">
+          <li>
+            <a
+              href="/"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              >home</a
+            >
+          </li>
+          <li>
+            <a
+              href="/posts.html"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              >posts</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://www.rubato.guitars"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              target="_blank"
+              >rubato↗</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://www.github.com/oliverlambson"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              target="_blank"
+              >github↗</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://www.linkedin.com/in/oliverlambson"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              target="_blank"
+              >linkedin↗</a
+            >
+          </li>
+        </ol>
+      </nav>
+    </header>
+    <main class="grow sm:pl-12 px-2 py-12">
+      <article class="prose-sm max-w-[45ch]">
+        <h1>Bio</h1>
+        <p>
+          Programmer and builder of Carbon Fibre guitars. Constantly tinkering
+          with something interesting.
+        </p>
+        <p>
+          Masters in Manufacturing and Management from Cambridge University, and
+          Bachelor of Mechatronic Engineering from Stellenbosch University.
+        </p>
+        <p>
+          Founded Rubato Guitars, a boutique carbon fibre electric guitar
+          company. Built lots of useful things at Lendable from 2022-24: part of
+          the core team that launched and scaled the US business.
+        </p>
+      </article>
+    </main>
+    <footer class="sm:pl-12 px-2 py-4">
+      <p class="text-stone-300 text-xs">&copy; 2024 Oliver Lambson</p>
+    </footer>
+  </body>
+</html>

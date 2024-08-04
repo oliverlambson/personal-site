@@ -1,0 +1,12 @@
+# EditorConfig is awesome: https://editorconfig.org
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+spelling_language = en-GB
+
+[*.md]
+charset = utf-8
+max_line_length = 80
