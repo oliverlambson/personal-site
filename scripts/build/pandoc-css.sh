@@ -8,9 +8,9 @@ out_dir="$in_dir/../out/"
 
 for file in "$in_dir"*.md; do
 	if [[ -f "$file" ]]; then
-		output_file="${out_dir}$(basename $file .md).html"
+		output_file="${out_dir}$(basename $file .md).css"
 
-		pandoc --highlight-style="$SCRIPT_DIR/monokai-tasty.theme" "$file" -o "$output_file"
+		pandoc --highlight-style="$SCRIPT_DIR/monokai-tasty.theme" --template="$SCRIPT_DIR/template-css.html" "$file" -o "$output_file"
 		npx prettier --write $output_file
 
 		echo "Converted $file to $output_file"
