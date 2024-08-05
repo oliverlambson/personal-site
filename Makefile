@@ -20,6 +20,22 @@ help:
 serve:
 	@echo "${YELLOW}TODO: still using python${RESET}"
 	python -m http.server -d web/static
+	
+# --- docker ------------------------------------------------------------------
+.phony: docker.build
+## Build container
+docker.build:
+	docker compose build
+
+.phony: docker.up
+## Build container
+docker.up:
+	docker compose up --build
+
+.phony: docker.down
+## Build container
+docker.down:
+	docker compose down --volumes --remove-orphans
 
 # --- build --------------------------------------------------------------------
 .phony: build
