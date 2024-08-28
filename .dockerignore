@@ -1,0 +1,11 @@
+.git/
+.github/
+bin/
+web/content/
+.editorconfig
+.gitignore
+.prettierignore
+.prettierrc
+compose.yaml
+Dockerfile
+README.md
