@@ -41,6 +41,10 @@ func NewServer(Addr string) *http.Server {
 
 	mux.Handle("/", http.FileServer(http.Dir("web/static")))
 
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK"))
+	})
+
 	loggedMux := loggingMiddleware(mux)
 
 	server := &http.Server{

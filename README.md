@@ -12,7 +12,7 @@ todo:
   - [ ] air for live reload
   - [ ] go templates
   - [ ] markdown to html build step? Or just do it in go and rely on caching?
-- [ ] healthcheck
+- [x] healthcheck
 - [ ] release-please
 - articles
   - [ ] boredcharts

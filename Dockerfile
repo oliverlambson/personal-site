@@ -12,3 +12,4 @@ COPY --from=builder /app/web/static ./web/static
 EXPOSE 1960
 ENV HOST_IP="0.0.0.0"
 CMD ["bin/main"]
+HEALTHCHECK CMD ["bin/main","healthcheck"]
