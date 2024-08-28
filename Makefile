@@ -15,11 +15,10 @@ help:
 		$(MAKEFILE_LIST)
 
 # --- develop ------------------------------------------------------------------
-.phony: serve
+.phony: dev
 ## Serve the site
-serve:
-	@echo "${YELLOW}TODO: still using python${RESET}"
-	python -m http.server -d web/static
+dev:
+	go run cmd/main.go
 	
 # --- docker ------------------------------------------------------------------
 .phony: docker.build
