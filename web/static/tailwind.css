@@ -1,0 +1,30 @@
+/*TODO: don't use dev tailwind and use this: */
+/*@layer utilities {*/
+/*  .content-auto {*/
+/*    content-visibility: auto;*/
+/*  }*/
+/*}*/
+/**/
+/*@layer components {*/
+/*  div:has(> table) {*/
+/*    @apply max-w-[100vw];*/
+/*    @apply translate-x-[-0.5rem];*/
+/*    @apply overflow-x-scroll;*/
+/*    @apply bg-stone-100;*/
+/*    @apply px-4;*/
+/*    @apply py-6;*/
+/*    @apply w-fit;*/
+/*  }*/
+/**/
+/*  .prose-sm > pre {*/
+/*    @apply overflow-x-scroll;*/
+/*    @apply max-w-[100vw];*/
+/*    @apply w-fit;*/
+/*    @apply translate-x-[-0.5rem];*/
+/*    @apply w-[80ch];*/
+/*  }*/
+/*}*/
+
+.prose-sm > pre {
+  overflow-x: scroll;
+}

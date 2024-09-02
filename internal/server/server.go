@@ -1,12 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/alecthomas/chroma"
@@ -45,8 +47,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// factory so i don't need a global htmlFormatter var
-func makeHTMLHighligher(htmlFormatter *html.Formatter, highlightStyle *chroma.Style) func(w io.Writer, source, lang, defaultLang string) error {
+func NewHTMLHighligher(htmlFormatter *html.Formatter, highlightStyle *chroma.Style) func(w io.Writer, source, lang, defaultLang string) error {
 	return func(w io.Writer, source, lang, defaultLang string) error {
 		if lang == "" {
 			lang = defaultLang
@@ -69,8 +70,7 @@ func makeHTMLHighligher(htmlFormatter *html.Formatter, highlightStyle *chroma.St
 	}
 }
 
-// factory so i don't need a global htmlHighlight var
-func makeCodeBlockRenderHook(htmlHighlight func(w io.Writer, source, lang, defaultLang string) error) func(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
+func NewCodeBlockRenderHook(htmlHighlight func(w io.Writer, source, lang, defaultLang string) error) func(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
 	return func(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
 		if code, ok := node.(*ast.CodeBlock); ok {
 			defaultLang := ""
@@ -88,11 +88,10 @@ func mdToHTML(md []byte) []byte {
 	p := parser.NewWithExtensions(extensions)
 	doc := p.Parse(md)
 
-	highlightStyle := styles.Get("monokailight")
-	formatter := html.New(html.WithClasses(true), html.TabWidth(2))
-	// TODO: formatter.WriteCSS(w io.Writer, style *chroma.Style)
-	htmlHighlight := makeHTMLHighligher(formatter, highlightStyle)
-	codeBlockRenderHook := makeCodeBlockRenderHook(htmlHighlight)
+	highlightStyle := styles.Get("monokai")
+	formatter := html.New(html.Standalone(false), html.TabWidth(4))
+	htmlHighlight := NewHTMLHighligher(formatter, highlightStyle)
+	codeBlockRenderHook := NewCodeBlockRenderHook(htmlHighlight)
 	opts := mdhtml.RendererOptions{
 		Flags:          mdhtml.CommonFlags | mdhtml.HrefTargetBlank,
 		RenderNodeHook: codeBlockRenderHook,
@@ -101,31 +100,9 @@ func mdToHTML(md []byte) []byte {
 	return markdown.Render(doc, renderer)
 }
 
-func markdownHandler(w http.ResponseWriter, r *http.Request) {
-	htmlFormatter := html.New(html.WithClasses(true), html.TabWidth(2))
-	if htmlFormatter == nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Println("couldn't create html formatter")
-		return
-	}
-
-	filePath := filepath.Join("web/content/in/", strings.TrimPrefix(r.URL.Path, "/content/in/"))
-
-	md, err := os.ReadFile(filePath)
-	if err != nil {
-		http.Error(w, "File not found", http.StatusNotFound)
-		log.Printf("failed to read file: %v", err)
-		return
-	}
-
-	html := mdToHTML(md)
-
-	w.Header().Set("Content-Type", "text/html")
-	_, err = w.Write(html)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("failed to write response: %v", err)
-	}
+type Page struct {
+	title string
+	body  []byte
 }
 
 func NewServer(Addr string) *http.Server {
@@ -134,14 +111,125 @@ func NewServer(Addr string) *http.Server {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/", http.FileServer(http.Dir("web/static")))
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
+
+	// process all content and save in memory
+	postTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/post.html.tmpl"))
+	pageTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/page.html.tmpl"))
+
+	pages := make(map[string]Page)
+
+	postsDir := "web/content/posts"
+	files, err := os.ReadDir(postsDir)
+	if err != nil {
+		log.Fatalf("failed to read posts directory: %v", err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if filepath.Ext(file.Name()) != ".md" {
+			continue
+		}
+
+		path := filepath.Join(postsDir, file.Name())
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			log.Fatalf("failed to read file: %v", err)
+		}
+
+		title := strings.TrimSuffix(file.Name()[9:], ".md")
+		body := mdToHTML(contents)
+
+		var fullHTML bytes.Buffer
+		data := struct {
+			Title string
+			Body  []byte
+		}{
+			Title: title,
+			Body:  body,
+		}
+		err = postTemplate.Execute(&fullHTML, data)
+
+		pages[title] = Page{title: title, body: fullHTML.Bytes()}
+	}
+
+	pagesDir := "web/content/"
+	files, err = os.ReadDir(pagesDir)
+	if err != nil {
+		log.Fatalf("failed to read pages directory: %v", err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		path := filepath.Join(pagesDir, file.Name())
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			log.Fatalf("failed to read file: %v", err)
+		}
+		ext := filepath.Ext(file.Name())
+		title := strings.TrimSuffix(file.Name(), ext)
+		body := []byte{}
+		tmpl := pageTemplate
+		if ext == ".md" {
+			body = mdToHTML(contents)
+			tmpl = postTemplate
+		} else if ext == ".html" {
+			body = contents
+		}
+
+		data := struct {
+			Title string
+			Body  []byte
+		}{
+			Title: title,
+			Body:  body,
+		}
+		var fullHTML bytes.Buffer
+		err = tmpl.Execute(&fullHTML, data)
+		if err != nil {
+			log.Fatalf("failed to execute template: %v", err)
+		}
+		pageHTML := fullHTML.Bytes()
+
+		pages[title] = Page{title: title, body: pageHTML}
+	}
+	for title := range pages {
+		log.Printf("loaded page: %s", title)
+	}
+
+	for title, page := range pages {
+		if title == "index" {
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/" {
+					http.NotFound(w, r)
+					return
+				}
+				w.Header().Set("Content-Type", "text/html")
+				_, err := w.Write(page.body)
+				if err != nil {
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					log.Printf("failed to write response: %v", err)
+				}
+			})
+			continue
+		}
+		mux.HandleFunc("/"+title, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			_, err := w.Write(page.body)
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				log.Printf("failed to write response: %v", err)
+			}
+		})
+	}
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
-
-	// Add handler for web/content/in/ which contains .md files
-	mux.HandleFunc("/content/in/", markdownHandler)
 
 	loggedMux := loggingMiddleware(mux)
 

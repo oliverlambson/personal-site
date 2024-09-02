@@ -3,28 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <title>Oliver Lambson?</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp,container-queries"></script>
+    <link rel="icon" href="static/favicon.ico" type="image/x-icon" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/static/favicon-16x16.png"
+    />
+    <title>{{ .Title }} | oliverlambson</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,container-queries"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            colors: {
-              clifford: "#da373d",
-            },
+            colors: {},
           },
         },
       };
     </script>
-    <style type="text/tailwindcss">
-      @layer utilities {
-        .content-auto {
-          content-visibility: auto;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="/static/tailwind.css" />
   </head>
   <body class="flex flex-col min-h-screen">
     <header class="sm:pl-12 px-2">
@@ -39,9 +42,16 @@
           </li>
           <li>
             <a
-              href="/posts.html"
+              href="/posts"
               class="underline underline-offset-2 hover:underline-offset-4"
               >posts</a
+            >
+          </li>
+          <li>
+            <a
+              href="/bio"
+              class="underline underline-offset-2 hover:underline-offset-4"
+              >bio</a
             >
           </li>
           <li>
@@ -72,22 +82,7 @@
       </nav>
     </header>
     <main class="grow sm:pl-12 px-2 py-12">
-      <article class="prose-sm max-w-[45ch]">
-        <h1>Bio</h1>
-        <p>
-          Programmer and builder of Carbon Fibre guitars. Constantly tinkering
-          with something interesting.
-        </p>
-        <p>
-          Masters in Manufacturing and Management from Cambridge University, and
-          Bachelor of Mechatronic Engineering from Stellenbosch University.
-        </p>
-        <p>
-          Founded Rubato Guitars, a boutique carbon fibre electric guitar
-          company. Built lots of useful things at Lendable from 2022-24: part of
-          the core team that launched and scaled the US business.
-        </p>
-      </article>
+      {{ block "body" . }}{{ end }}
     </main>
     <footer class="sm:pl-12 px-2 py-4">
       <p class="text-stone-300 text-xs">&copy; 2024 Oliver Lambson</p>
