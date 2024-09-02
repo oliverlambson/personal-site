@@ -1,0 +1,22 @@
+body {
+  font-family: sans-serif;
+}
+
+body > * {
+  max-width: 30rem;
+}
+
+body > pre {
+  max-width: 85ch;
+  overflow-x: scroll;
+  padding: 0.5rem;
+}
+
+pre,
+code {
+  background-color: linen;
+}
+
+p {
+  line-height: 1.33;
+}

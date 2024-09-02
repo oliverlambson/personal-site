@@ -4,7 +4,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
 )
 
 type CustomResponseWriter struct {
@@ -33,6 +39,37 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func MdToHTML(md []byte) []byte {
+	// see: https://blog.kowalczyk.info/article/cxn3/advanced-markdown-processing-in-go.html
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(md)
+
+	htmlFlags := html.CommonFlags | html.HrefTargetBlank
+	opts := html.RendererOptions{Flags: htmlFlags}
+	renderer := html.NewRenderer(opts)
+
+	return markdown.Render(doc, renderer)
+}
+
+func markdownHandler(w http.ResponseWriter, r *http.Request) {
+	filePath := filepath.Join("web/content/in/", strings.TrimPrefix(r.URL.Path, "/content/in/"))
+
+	md, err := os.ReadFile(filePath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	html := MdToHTML(md)
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(html)
+	// TODO: add title from markdown frontmatter
+	// TODO: add style.css
+	// TODO: add code highlighting
+}
+
 func NewServer(Addr string) *http.Server {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -44,6 +81,9 @@ func NewServer(Addr string) *http.Server {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
+
+	// Add handler for web/content/in/ which contains .md files
+	mux.HandleFunc("/content/in/", markdownHandler)
 
 	loggedMux := loggingMiddleware(mux)
 
