@@ -21,39 +21,28 @@ dev:
 	go run cmd/main.go
 	
 # --- docker ------------------------------------------------------------------
-.phony: docker.build
+.phony: d.build
 ## Build container
-docker.build:
+d.build:
 	docker compose build
 
-.phony: docker.up
+.phony: d.up
 ## Build container
-docker.up:
+d.up:
 	docker compose up --build
 
-.phony: docker.down
+.phony: d.down
 ## Build container
-docker.down:
+d.down:
 	docker compose down --volumes --remove-orphans
-
-# --- build --------------------------------------------------------------------
-.phony: build
-## Builds the deployable site
-build:
-	$(MAKE) build.content
-
-.phony: build.content
-## Builds html snippets from markdown content
-build.content:
-	scripts/build/pandoc.sh
 
 # --- ci ----------------------------------------------------------------------
 .phony: lint
 ## Runs linting over project
 lint:
-	scripts/ci/lint.sh
+	npx prettier --check .
 
 .phony: fmt
 ## Runs formatting over project
 fmt:
-	scripts/ci/fmt.sh
+	npx prettier --write .
