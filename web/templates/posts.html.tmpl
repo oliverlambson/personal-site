@@ -1,0 +1,17 @@
+{{ define "body" }}
+<div class="max-w-[45ch]">
+  <h1 class="text-xl pb-4">Posts</h1>
+  <ul class="list-disc marker:text-stone-400 marker:text-sm">
+    {{ range .Posts }}
+    <li>
+      <a
+        href="{{ .URL }}"
+        class="text-sm text-blue-500 underline underline-offset-2 hover:underline-offset-4"
+      >
+        {{ .Title }}
+      </a>
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
