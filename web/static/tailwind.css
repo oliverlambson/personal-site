@@ -24,7 +24,3 @@
 /*    @apply w-[80ch];*/
 /*  }*/
 /*}*/
-
-.prose-sm > pre {
-  overflow-x: scroll;
-}

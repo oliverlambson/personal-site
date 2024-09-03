@@ -27,6 +27,28 @@
         },
       };
     </script>
+    <style type="text/tailwindcss">
+      @layer utilities {
+        .prose-sm > pre {
+          @apply overflow-x-scroll;
+        }
+        .prose-sm > p > a {
+          @apply text-blue-500 underline underline-offset-2 hover:underline-offset-4;
+        }
+        .footnotes > ol {
+          @apply list-decimal;
+        }
+        .footnote-ref {
+            @apply text-stone-300 underline underline-offset-2;
+          }
+        .footnote-ref::before {
+          content: "[";
+        }
+        .footnote-ref::after {
+          content: "]";
+        }
+      }
+    </style>
     <link rel="stylesheet" href="/static/tailwind.css" />
   </head>
   <body class="flex flex-col min-h-screen">
