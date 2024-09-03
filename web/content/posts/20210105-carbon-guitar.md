@@ -1,14 +1,6 @@
-<!--
----
-
-title: Why I make carbon fibre guitars 
-date: 2021-01-05
-description: The musical instrument industry is incredibly niche and the most popular electric guitar models are designs from the 1950's. Why bother?
-
----
--->
-
 # Why I make carbon fibre guitars
+
+January 2021
 
 The musical instrument industry is a tiny niche and the most popular electric
 guitar models are designs from the 1950's. Why bother?
