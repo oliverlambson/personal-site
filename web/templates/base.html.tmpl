@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="static/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
     <link
       rel="icon"
       type="image/png"
@@ -17,7 +17,8 @@
       href="/static/favicon-16x16.png"
     />
     <title>{{ .Title }} | oliverlambson</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,container-queries"></script>
+    <!-- curl -sSL "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,container-queries" > tailwind-dev.min.js -->
+    <script src="/static/tailwind-dev.min.js"></script>
     <script>
       tailwind.config = {
         theme: {
