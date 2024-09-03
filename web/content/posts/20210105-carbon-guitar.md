@@ -71,7 +71,7 @@ the 60's. They'll take design inspiration from the old stuff, but they're not
 going to use drum brakes.
 
 Les Pauls and Strats are iconic. We love their sound and we want to be like our
-guitar heroes. But, when we know don't have to, why should we inherit their
+guitar heroes. But, when we now don't have to, why should we inherit their
 limitations?
 
 ---
