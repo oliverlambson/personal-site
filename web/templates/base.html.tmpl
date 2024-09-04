@@ -33,13 +33,23 @@
         .prose-sm > pre {
           @apply overflow-x-scroll;
         }
-        .prose-sm > p > a {
+        .prose-sm :is(a) {
           @apply text-blue-500 underline underline-offset-2 hover:underline-offset-4;
         }
-        .footnotes > ol {
+        .prose-sm :is(ol) {
           @apply list-decimal;
         }
+        .prose-sm :is(ul) {
+          @apply list-disc;
+        }
+        .prose-sm :is(blockquote) {
+          @apply border-l border-stone-300 text-stone-500;
+        }
+
         .footnote-ref {
+            @apply text-stone-300;
+          }
+        .footnote-ref :is(a) {
             @apply text-stone-300 underline underline-offset-2;
           }
         .footnote-ref::before {
