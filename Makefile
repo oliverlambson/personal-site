@@ -15,10 +15,16 @@ help:
 		$(MAKEFILE_LIST)
 
 # --- develop ------------------------------------------------------------------
+.phony: dev.deps
+dev.deps:
+	go install github.com/air-verse/air@latest
+	@mkdir -p tmp
+	@which air &>/dev/null || echo "air not found in PATH, you may need to add your go bin directory to your PATH"
+
 .phony: dev
 ## Serve the site
 dev:
-	go run cmd/main.go
+	@air
 	
 # --- docker ------------------------------------------------------------------
 .phony: d.build

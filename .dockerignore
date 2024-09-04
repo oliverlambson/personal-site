@@ -1,10 +1,13 @@
 .git/
 .github/
 bin/
+tmp/
+.air.toml
 .editorconfig
 .gitignore
 .prettierignore
 .prettierrc
-compose.yaml
 Dockerfile
+Makefile
 README.md
+compose.yaml
