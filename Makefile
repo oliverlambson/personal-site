@@ -60,7 +60,8 @@ push: build
 .PHONY: save
 ## Save the image tarball
 save: build
-	docker save $$REGISTRY/personal-site:$$VERSION > personal-site-latest.tar
+	@echo "saving $$REGISTRY/personal-site:$$SHA"
+	docker save $$REGISTRY/personal-site:$$SHA > personal-site-latest.tar
 
 .PHONY: deploy
 ## Save the image tarball
@@ -70,9 +71,10 @@ sync-image: save
 
 .PHONY: deploy
 ## Deploy application to server
-deploy:
-	ssh ollie@oliverlambson.com 'rm -rf ~/personal-site'
-	scp -r deployment/ ollie@oliverlambson.com:~/personal-site
+deploy: sync-image
+	@echo "This deploys the **previous** commit"
+	sed -i '' "s/^VERSION=.*/VERSION=\"$$SHA\"/" deployment/.env.op
+	rsync -av -e ssh deployment/ ollie@oliverlambson.com:~/personal-site/
 	ssh ollie@oliverlambson.com 'bash -c "./secrets.sh ~/personal-site/ && ./generate-config.sh -f ~/personal-site/compose.yaml | docker stack deploy -d -c - personal-site"'
 
 # --- docker compose -----------------------------------------------------------
