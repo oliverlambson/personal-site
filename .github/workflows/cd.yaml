@@ -1,0 +1,31 @@
+name: deploy:personal-site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "deployment/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy Stack
+        with:
+          user: ${{ secrets.VPS_USER }}
+          server: ${{ secrets.VPS_IP }}
+          rootdir: /home/user
+          service: personal-site
+          folder: deployment
+        run: |
+          scp -r "$folder/" "$user@$server:$rootdir/$service/"
+          ssh "$user@$server" "docker stack deploy -c $rootdir/$service/$folder/compose.yaml $service"

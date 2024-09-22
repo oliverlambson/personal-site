@@ -1,0 +1,10 @@
+services:
+  personal-site:
+    ports:
+      - "1960:1960" # traefik proxy in deployment so we only expose ports locally
+
+networks:
+  public:
+    external: false
+  loki:
+    external: false

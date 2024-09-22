@@ -2,12 +2,12 @@
 .github/
 bin/
 tmp/
+deployment/
 .air.toml
 .editorconfig
 .gitignore
 .prettierignore
 .prettierrc
-Dockerfile
 Makefile
 README.md
 compose.yaml
