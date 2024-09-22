@@ -14,16 +14,16 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.services.personal-site.loadbalancer.server.port=1960" # internal port for traefik<>service
-        - "traefik.http.routers.personal-site.rule=HostRegexp(`^(www\\.)?oliverlambson\\.com(\\.localhost)?$$`)"
-        - "traefik.http.routers.personal-site.entrypoints=web" # 'web' defined in traefik config
-        # TODO: https
-        # - "traefik.http.routers.personal-site.entrypoints=websecure" # 'websecure' defined in traefik config
-        # - "traefik.http.routers.personal-site.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.personal-site.rule=Host(`oliverlambson.com`) ||
+          Host(`www.oliverlambson.com`) ||
+          HostRegexp(`^(www\\.)?oliverlambson\\.*$$`)"
+        - "traefik.http.routers.personal-site.entrypoints=websecure" # 'websecure' defined in traefik config
+        - "traefik.http.routers.personal-site.tls.certresolver=letsencrypt"
         # middleware for redirecting to www, with redirectregex to enforce www
-        # - "traefik.http.routers.personal-site.middlewares=redirect-to-www"
-        # - "traefik.http.middlewares.redirect-to-www.redirectregex.regex=^https?://(?:www\\.)?(.+)"
-        # - "traefik.http.middlewares.redirect-to-www.redirectregex.replacement=https://www.$${1}"
-        # - "traefik.http.middlewares.redirect-to-www.redirectregex.permanent=true"
+        - "traefik.http.middlewares.redirect-to-www.redirectregex.regex=^https?://(?:www\\.)?(.+)"
+        - "traefik.http.middlewares.redirect-to-www.redirectregex.replacement=https://www.$${1}"
+        - "traefik.http.middlewares.redirect-to-www.redirectregex.permanent=true"
+        - "traefik.http.routers.personal-site.middlewares=redirect-to-www"
     networks:
       - public
       - loki
