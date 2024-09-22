@@ -40,7 +40,13 @@ fmt:
 # --- cd ----------------------------------------------------------------------
 export SHA ?= $(shell git rev-parse --short HEAD)
 export VERSION ?= latest
-export REGISTRY ?= registry.oliverlambson.com.localhost
+export REGISTRY ?= registry.oliverlambson.com
+
+.PHONY: login
+## login to docker registry
+login:
+	op item get --vault oliverlambson.com docker-registry-user --field password --reveal | docker login -u docker-registry-user --password-stdin registry.oliverlambson.com
+
 .PHONY: build
 ## build the image for VERSION. e.g., make build VERSION=1.0
 build:
@@ -51,30 +57,18 @@ build:
 
 .PHONY: push
 ## Push the image to the registry
-push: build
+push: build login
 	docker compose \
 		--file deployment/compose.yaml \
 		--file deployment/compose.build.yaml \
 		push
 
-.PHONY: save
-## Save the image tarball
-save: build
-	@echo "saving $$REGISTRY/personal-site:$$SHA"
-	docker save $$REGISTRY/personal-site:$$SHA > personal-site-latest.tar
-
-.PHONY: deploy
-## Save the image tarball
-sync-image: save
-	scp personal-site-latest.tar ollie@oliverlambson.com:~/personal-site-latest.tar
-	ssh ollie@oliverlambson.com 'docker load < personal-site-latest.tar && rm personal-site-latest.tar'
-
 .PHONY: deploy
 ## Deploy application to server
-deploy: sync-image
+deploy: push
 	@echo "This deploys the **previous** commit"
 	sed -i '' "s/^VERSION=.*/VERSION=\"$$SHA\"/" deployment/.env.op
-	rsync -av -e ssh deployment/ ollie@oliverlambson.com:~/personal-site/
+	rsync -av -e ssh --exclude=".env" deployment/ ollie@oliverlambson.com:~/personal-site/
 	ssh ollie@oliverlambson.com 'bash -c "./secrets.sh ~/personal-site/ && ./generate-config.sh -f ~/personal-site/compose.yaml | docker stack deploy -d -c - personal-site"'
 
 # --- docker compose -----------------------------------------------------------
