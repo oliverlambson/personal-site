@@ -68,8 +68,18 @@ push: build login
 deploy: push
 	@echo "This deploys the **previous** commit"
 	sed -i '' "s/^VERSION=.*/VERSION=\"$$SHA\"/" deployment/.env.op
-	rsync -av -e ssh --exclude=".env" deployment/ ollie@oliverlambson.com:~/personal-site/
-	ssh ollie@oliverlambson.com 'bash -c "./secrets.sh ~/personal-site/ && ./generate-config.sh -f ~/personal-site/compose.yaml | docker stack deploy -d -c - personal-site"'
+	rsync \
+		-av \
+		-e ssh \
+		--exclude='.env' \
+		--exclude-from="deployment/.rsyncignore" \
+		deployment/ \
+		ollie@oliverlambson.com:~/personal-site/
+	ssh ollie@oliverlambson.com <<EOF
+			./secrets.sh ~/personal-site/ && \
+			./generate-config.sh -f ~/personal-site/compose.yaml \
+			| docker stack deploy -d -c - personal-site
+	EOF
 
 # --- docker compose -----------------------------------------------------------
 .PHONY: up
