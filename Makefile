@@ -75,11 +75,7 @@ deploy: push
 		--exclude-from="deployment/.rsyncignore" \
 		deployment/ \
 		ollie@oliverlambson.com:~/personal-site/
-	ssh ollie@oliverlambson.com <<EOF
-			./secrets.sh ~/personal-site/ && \
-			./generate-config.sh -f ~/personal-site/compose.yaml \
-			| docker stack deploy -d -c - personal-site
-	EOF
+	ssh ollie@oliverlambson.com "bash -c './secrets.sh ~/personal-site/ && ./generate-config.sh -f ~/personal-site/compose.yaml | docker stack deploy -d -c - personal-site'"
 
 # --- docker compose -----------------------------------------------------------
 .PHONY: up
