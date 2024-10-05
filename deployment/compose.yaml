@@ -26,10 +26,7 @@ services:
         - "traefik.http.routers.personal-site.middlewares=redirect-to-www"
     networks:
       - public
-      - loki
 
 networks:
   public:
-    external: true
-  loki:
     external: true
