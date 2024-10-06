@@ -3,6 +3,8 @@ version: "3.8"
 services:
   personal-site:
     image: ${REGISTRY:-localhost:5000}/personal-site:${VERSION:-latest}
+    environment:
+      _deploy: "0"
     deploy:
       replicas: 1
       restart_policy:

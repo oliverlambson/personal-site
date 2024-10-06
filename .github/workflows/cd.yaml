@@ -12,20 +12,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install SSH key
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
 
       - name: Deploy Stack
+        uses: oliverlambson/personal.gitops/.github/actions/deploy-stack@cd-v1
         with:
-          user: ${{ secrets.VPS_USER }}
-          server: ${{ secrets.VPS_IP }}
-          rootdir: /home/user
-          service: personal-site
-          folder: deployment
-        run: |
-          scp -r "$folder/" "$user@$server:$rootdir/$service/"
-          ssh "$user@$server" "docker stack deploy -c $rootdir/$service/$folder/compose.yaml $service"
+          name: personal-site
+          directory: deployment
+          ssh-user: ${{ secrets.VPS_SSH_USER }}
+          ssh-host: ${{ secrets.VPS_SSH_HOST }}
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
