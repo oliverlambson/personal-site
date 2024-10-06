@@ -1,6 +1,9 @@
 name: build:personal-site
 
 on:
+  release:
+    types:
+      - published
   push:
     branches:
       - main
@@ -14,7 +17,17 @@ jobs:
 
       - id: vars
         run: |
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          sha_short="$(git rev-parse --short HEAD)"
+          echo "sha_short=$sha_short" >>$GITHUB_OUTPUT
+
+          echo "tags<<EOF" >>$GITHUB_OUTPUT
+          echo "$REGISTRY_HOST/personal-site:$sha_short" >>$GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "$REGISTRY_HOST/personal-site:${{ github.ref_name }}" >>$GITHUB_OUTPUT
+          fi
+          echo "EOF" >>$GITHUB_OUTPUT
+        env:
+          REGISTRY_HOST: ${{ vars.DOCKER_REGISTRY_HOST }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -35,9 +48,7 @@ jobs:
           context: .
           file: deployment/Dockerfile
           push: true
-          tags: |
-            ${{ vars.DOCKER_REGISTRY_HOST }}/personal-site:${{ github.ref_name }}
-            ${{ vars.DOCKER_REGISTRY_HOST }}/personal-site:${{ steps.vars.outputs.sha_short }}
+          tags: ${{ steps.vars.outputs.tags }}
           build-args: |
             VERSION="${{ github.ref_name }}"
             SHA="${{ steps.vars.outputs.sha_short }}"
