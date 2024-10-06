@@ -1,10 +1,15 @@
 services:
   personal-site:
+    image: registry.oliverlambson.com/personal-site:${VERSION:-latest}
     ports:
       - "1960:1960" # traefik proxy in deployment so we only expose ports locally
-
-networks:
-  public:
-    external: false
-  loki:
-    external: false
+    platform: linux/arm64
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        SHA: ${SHA:-unknown}
+      tags: # not allowed in compose version '3', so override here
+        - registry.oliverlambson.com/personal-site:${VERSION:-latest}
+        - registry.oliverlambson.com/personal-site:${SHA:-unknown}

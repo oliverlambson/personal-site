@@ -50,24 +50,24 @@ login:
 .PHONY: build
 ## build the image for VERSION. e.g., make build VERSION=1.0
 build:
-	docker compose \
-		--file deployment/compose.yaml \
-		--file deployment/compose.build.yaml \
-		build
+	docker buildx build \
+		--file deployment/Dockerfile \
+		--tag "${REGISTRY}/personal-site:${SHA}" \
+		--tag "${REGISTRY}/personal-site:${VERSION}" \
+		--build-arg VERSION="${VERSION}" \
+		--build-arg SHA="${SHA}" \
+		--platform linux/arm64 \
+		.
 
 .PHONY: push
 ## Push the image to the registry
 push: build login
-	docker compose \
-		--file deployment/compose.yaml \
-		--file deployment/compose.build.yaml \
-		push
+	docker push "${REGISTRY}/personal-site:${SHA}"
+	docker push "${REGISTRY}/personal-site:${VERSION}"
 
 .PHONY: deploy
 ## Deploy application to server
 deploy: push
-	@echo "This deploys the **previous** commit"
-	sed -i '' "s/^VERSION=.*/VERSION=\"$$SHA\"/" deployment/.env.op
 	rsync \
 		-av \
 		-e ssh \
@@ -83,7 +83,6 @@ deploy: push
 up:
 	docker compose \
 		--file deployment/compose.yaml \
-		--file deployment/compose.build.yaml \
 		--file deployment/compose.dev.yaml \
 		up --build --detach
 	@echo "dev at: http://localhost:1960"
@@ -93,7 +92,6 @@ up:
 down:
 	docker compose \
 		--file deployment/compose.yaml \
-		--file deployment/compose.build.yaml \
 		--file deployment/compose.dev.yaml \
 	down --volumes --remove-orphans
 
@@ -102,7 +100,6 @@ down:
 logs:
 	docker compose \
 		--file deployment/compose.yaml \
-		--file deployment/compose.build.yaml \
 		--file deployment/compose.dev.yaml \
 	logs -f
 

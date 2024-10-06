@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   personal-site:
-    image: ${REGISTRY:-localhost:5000}/personal-site:${VERSION:-latest}
+    image: registry.oliverlambson.com/personal-site:8786ac2
     environment:
       _deploy: "0"
     deploy:
