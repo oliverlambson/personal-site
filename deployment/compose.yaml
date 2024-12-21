@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   personal-site:
-    image: registry.oliverlambson.com/personal-site:0.1.0
+    image: registry.oliverlambson.com/personal-site:0.2.0
     environment:
       _deploy: "0"
     deploy:
