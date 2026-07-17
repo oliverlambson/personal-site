@@ -1,4 +1,0 @@
-local/
-Dockerfile
-compose.dev.yaml
-compose.build.yaml
