@@ -1,12 +1,10 @@
-name: build:personal-site
+name: build:personal-site:rollback
 
 on:
-  release:
-    types:
-      - published
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -19,13 +17,7 @@ jobs:
         run: |
           sha_short="$(git rev-parse --short HEAD)"
           echo "sha_short=$sha_short" >>$GITHUB_OUTPUT
-
-          echo "tags<<EOF" >>$GITHUB_OUTPUT
-          echo "$REGISTRY_HOST/personal-site:$sha_short" >>$GITHUB_OUTPUT
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "$REGISTRY_HOST/personal-site:${{ github.ref_name }}" >>$GITHUB_OUTPUT
-          fi
-          echo "EOF" >>$GITHUB_OUTPUT
+          echo "tag=$REGISTRY_HOST/personal-site:$sha_short" >>$GITHUB_OUTPUT
         env:
           REGISTRY_HOST: ${{ vars.DOCKER_REGISTRY_HOST }}
 
@@ -42,16 +34,13 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
-      - name: Build and push
+      - name: Build and push rollback image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deployment/Dockerfile
           push: true
-          tags: ${{ steps.vars.outputs.tags }}
-          build-args: |
-            VERSION="${{ github.ref_name }}"
-            SHA="${{ steps.vars.outputs.sha_short }}"
+          tags: ${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/arm64

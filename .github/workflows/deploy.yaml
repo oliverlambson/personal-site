@@ -1,0 +1,156 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-personal-site
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: private.oliverlambson.com
+  DEPLOY_USER: ollie
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify native build architecture
+        run: |
+          test "$(go env GOOS)" = "linux"
+          test "$(go env GOARCH)" = "arm64"
+
+      - name: Install formatting dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: make lint
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build static binary
+        run: CGO_ENABLED=0 go build -trimpath -o personal-site ./cmd
+
+      - name: Verify static AArch64 Linux binary
+        run: |
+          description="$(file personal-site)"
+          echo "$description"
+          case "$description" in
+            *"ELF 64-bit LSB executable"*"ARM aarch64"*"statically linked"*) ;;
+            *) exit 1 ;;
+          esac
+
+      - name: Join personal tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:ci
+
+      - name: Verify tailnet and deployment access policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status="$(tailscale status --json)"
+          tailnet="$(jq -r '.CurrentTailnet.Name // empty' <<<"$status")"
+          if [[ "$tailnet" != "oliverlambson@gmail.com" ]]; then
+            echo "unexpected Tailscale tailnet: $tailnet" >&2
+            exit 1
+          fi
+          suffix="$(jq -r '.CurrentTailnet.MagicDNSSuffix // empty' <<<"$status")"
+          if [[ "$suffix" != "tail7f1be0.ts.net" ]]; then
+            echo "unexpected Tailscale MagicDNS suffix: $suffix" >&2
+            exit 1
+          fi
+          tags="$(jq -c '(.Self.Tags // []) | sort' <<<"$status")"
+          if [[ "$tags" != '["tag:ci"]' ]]; then
+            echo "unexpected Tailscale node tags: $tags" >&2
+            exit 1
+          fi
+
+          reachable=false
+          for _ in $(seq 1 36); do
+            if tailscale ping --timeout=5s "$DEPLOY_HOST"; then
+              reachable=true
+              break
+            fi
+            sleep 5
+          done
+          if [[ "$reachable" != true ]]; then
+            echo "$DEPLOY_HOST did not become reachable through Tailscale" >&2
+            exit 1
+          fi
+
+          assert_reachable() {
+            local port="$1"
+            if ! timeout 5 bash -c 'exec 3<>/dev/tcp/$1/$2' bash "$DEPLOY_HOST" "$port" 2>/dev/null; then
+              echo "$DEPLOY_HOST:$port is unexpectedly unreachable" >&2
+              exit 1
+            fi
+          }
+
+          assert_unreachable() {
+            local port="$1"
+            if timeout 5 bash -c 'exec 3<>/dev/tcp/$1/$2' bash "$DEPLOY_HOST" "$port" 2>/dev/null; then
+              echo "$DEPLOY_HOST:$port is unexpectedly reachable" >&2
+              exit 1
+            fi
+          }
+
+          assert_reachable 22
+          assert_unreachable 443
+          assert_unreachable 2222
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" >"$HOME/.ssh/deploy_key"
+          timeout 10 ssh-keyscan -T 5 -H "$DEPLOY_HOST" >"$HOME/.ssh/known_hosts"
+
+      - name: Upload and deploy binary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          artifact="personal-site"
+          checksum="$(sha256sum "$artifact" | awk '{print $1}')"
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          remote_artifact="/home/$DEPLOY_USER/.personal-site-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh_options=(
+            -i "$HOME/.ssh/deploy_key"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+          )
+
+          cleanup() {
+            ssh "${ssh_options[@]}" "$target" "rm -f -- '$remote_artifact'" || true
+          }
+          trap cleanup EXIT
+
+          scp "${ssh_options[@]}" "$artifact" "$target:$remote_artifact"
+
+          remote_checksum="$(ssh "${ssh_options[@]}" "$target" "sha256sum -- '$remote_artifact'" | awk '{print $1}')"
+          if [[ "$remote_checksum" != "$checksum" ]]; then
+            echo "uploaded artifact checksum mismatch" >&2
+            exit 1
+          fi
+
+          ssh "${ssh_options[@]}" "$target" \
+            "~/bin/deploy-personal-site '$remote_artifact' '$GITHUB_SHA'"
+          echo "Deployed $GITHUB_SHA"

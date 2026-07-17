@@ -1,11 +1,10 @@
-name: deploy:personal-site
+name: deploy:personal-site:rollback
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "deployment/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -14,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy Stack
+      - name: Deploy rollback stack
         uses: oliverlambson/personal.gitops/.github/actions/deploy-stack@cd-v1
         with:
           name: personal-site

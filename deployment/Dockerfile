@@ -1,4 +1,3 @@
-
 FROM golang:1.23 AS builder
 WORKDIR /app
 COPY ./go.mod ./
@@ -15,8 +14,7 @@ ENV SHA=${SHA}
 
 WORKDIR /root/
 COPY --from=builder /app/bin/main ./bin/main
-COPY --from=builder /app/web/ ./web/
 EXPOSE 1960
-ENV HOST_IP="0.0.0.0"
+ENV PERSONAL_SITE_ADDR="0.0.0.0:1960"
 CMD ["bin/main"]
 HEALTHCHECK CMD ["bin/main","healthcheck"]
