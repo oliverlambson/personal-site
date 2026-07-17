@@ -3,11 +3,13 @@ package server
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"text/template"
 	"time"
@@ -170,73 +172,91 @@ type PostsData struct {
 	Posts []PostData
 }
 
-func getIndexPage(newPost PostData) Page {
-	indexTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/page-blank.html.tmpl", "web/templates/index.html.tmpl"))
+func getIndexPage(content fs.FS, newPost PostData) (Page, error) {
+	indexTemplate, err := template.ParseFS(content, "templates/base.html.tmpl", "templates/page-blank.html.tmpl", "templates/index.html.tmpl")
+	if err != nil {
+		return Page{}, fmt.Errorf("parse index templates: %w", err)
+	}
 	indexData := IndexData{Title: "index", NewPost: newPost}
 	var indexHTML bytes.Buffer
-	err := indexTemplate.Execute(&indexHTML, indexData)
+	err = indexTemplate.Execute(&indexHTML, indexData)
 	if err != nil {
-		log.Fatalf("failed to execute template: %v", err)
+		return Page{}, fmt.Errorf("execute index template: %w", err)
 	}
-	return Page{Title: "index", HTML: indexHTML.Bytes(), URL: "/"}
+	return Page{Title: "index", HTML: indexHTML.Bytes(), URL: "/"}, nil
 }
 
 // TODO: refactor
-func getPages() (map[string]Page, PostsData) {
+func getPages(content fs.FS) (map[string]Page, PostsData, error) {
 	pages := make(map[string]Page)
 
 	// templates
 	// TODO: is this how you do templates?
-	postTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/post.html.tmpl"))
-	postsTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/posts.html.tmpl"))
-	pageBlankTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/page-blank.html.tmpl"))
-	pageProseTemplate := template.Must(template.ParseFiles("web/templates/base.html.tmpl", "web/templates/page-prose.html.tmpl"))
+	postTemplate, err := template.ParseFS(content, "templates/base.html.tmpl", "templates/post.html.tmpl")
+	if err != nil {
+		return nil, PostsData{}, fmt.Errorf("parse post templates: %w", err)
+	}
+	postsTemplate, err := template.ParseFS(content, "templates/base.html.tmpl", "templates/posts.html.tmpl")
+	if err != nil {
+		return nil, PostsData{}, fmt.Errorf("parse posts templates: %w", err)
+	}
+	pageBlankTemplate, err := template.ParseFS(content, "templates/base.html.tmpl", "templates/page-blank.html.tmpl")
+	if err != nil {
+		return nil, PostsData{}, fmt.Errorf("parse blank page templates: %w", err)
+	}
+	pageProseTemplate, err := template.ParseFS(content, "templates/base.html.tmpl", "templates/page-prose.html.tmpl")
+	if err != nil {
+		return nil, PostsData{}, fmt.Errorf("parse prose page templates: %w", err)
+	}
 
 	// /{post}
-	postsDir := "web/content/posts"
-	postFiles, err := os.ReadDir(postsDir)
+	postsDir := "content/posts"
+	postFiles, err := fs.ReadDir(content, postsDir)
 	if err != nil {
-		log.Fatalf("failed to read posts directory: %v", err)
+		return nil, PostsData{}, fmt.Errorf("read posts directory: %w", err)
 	}
 	postMdFiles := []string{}
 	for _, file := range postFiles {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".md" {
-			postMdFiles = append(postMdFiles, filepath.Join(postsDir, file.Name()))
+		if !file.IsDir() && path.Ext(file.Name()) == ".md" {
+			postMdFiles = append(postMdFiles, path.Join(postsDir, file.Name()))
 		}
 	}
 	postsData := PostsData{Title: "posts", Posts: []PostData{}}
 	for _, file := range postMdFiles {
-		contents, err := os.ReadFile(file)
+		contents, err := fs.ReadFile(content, file)
 		if err != nil {
-			log.Fatalf("failed to read file: %v", err)
+			return nil, PostsData{}, fmt.Errorf("read post %q: %w", file, err)
 		}
 
-		filename := filepath.Base(file)
-		ext := filepath.Ext(filename)
+		filename := path.Base(file)
+		ext := path.Ext(filename)
 		url := "/" + strings.TrimSuffix(filename[len("YYYYMMDD-"):], ext)
 		title := strings.TrimSuffix(filename[len("YYYYMMDD-"):], ext) // TODO: extract first H1 from md
 
 		c, err := mdToHTML(contents)
 		if err != nil {
-			log.Fatalf("failed to convert markdown to html for file=%s: %v", file, err)
+			return nil, PostsData{}, fmt.Errorf("convert post %q to HTML: %w", file, err)
 		}
 
 		var fullHTML bytes.Buffer
 		postData := PostData{Title: c.Title, Body: c.HTML, URL: url}
 		err = postTemplate.Execute(&fullHTML, postData)
 		if err != nil {
-			log.Fatalf("failed to execute template: %v", err)
+			return nil, PostsData{}, fmt.Errorf("execute post template for %q: %w", file, err)
 		}
 
 		postsData.Posts = append([]PostData{postData}, postsData.Posts...) // prepend to sort desc
 		pages[title] = Page{Title: title, HTML: fullHTML.Bytes(), URL: url}
 	}
+	if len(postsData.Posts) == 0 {
+		return nil, PostsData{}, errors.New("no posts found")
+	}
 
 	// /{page}
-	pagesDir := "web/content/"
-	pageFiles, err := os.ReadDir(pagesDir)
+	pagesDir := "content"
+	pageFiles, err := fs.ReadDir(content, pagesDir)
 	if err != nil {
-		log.Fatalf("failed to read posts directory: %v", err)
+		return nil, PostsData{}, fmt.Errorf("read pages directory: %w", err)
 	}
 	pageProseFiles := []string{}
 	pageBlankFiles := []string{}
@@ -244,47 +264,47 @@ func getPages() (map[string]Page, PostsData) {
 		if file.IsDir() {
 			continue
 		}
-		if filepath.Ext(file.Name()) == ".md" {
-			pageProseFiles = append(pageProseFiles, filepath.Join(pagesDir, file.Name()))
-		} else if filepath.Ext(file.Name()) == ".html" {
-			pageBlankFiles = append(pageBlankFiles, filepath.Join(pagesDir, file.Name()))
+		if path.Ext(file.Name()) == ".md" {
+			pageProseFiles = append(pageProseFiles, path.Join(pagesDir, file.Name()))
+		} else if path.Ext(file.Name()) == ".html" {
+			pageBlankFiles = append(pageBlankFiles, path.Join(pagesDir, file.Name()))
 		}
 	}
 
 	for _, file := range pageProseFiles {
-		contents, err := os.ReadFile(file)
+		contents, err := fs.ReadFile(content, file)
 		if err != nil {
-			log.Fatalf("failed to read file: %v", err)
+			return nil, PostsData{}, fmt.Errorf("read page %q: %w", file, err)
 		}
 
-		filename := filepath.Base(file)
-		ext := filepath.Ext(filename)
+		filename := path.Base(file)
+		ext := path.Ext(filename)
 		title := strings.TrimSuffix(filename, ext)
 
 		url := "/" + title
 
 		b, err := mdToHTML(contents)
 		if err != nil {
-			log.Fatalf("failed to convert markdown to html for file=%s: %v", file, err)
+			return nil, PostsData{}, fmt.Errorf("convert page %q to HTML: %w", file, err)
 		}
 
 		var fullHTML bytes.Buffer
 		err = pageProseTemplate.Execute(&fullHTML, PageData{Title: b.Title, Body: b.HTML})
 		if err != nil {
-			log.Fatalf("failed to execute template: %v", err)
+			return nil, PostsData{}, fmt.Errorf("execute prose page template for %q: %w", file, err)
 		}
 
 		pages[title] = Page{Title: title, HTML: fullHTML.Bytes(), URL: url}
 	}
 
 	for _, file := range pageBlankFiles {
-		contents, err := os.ReadFile(file)
+		contents, err := fs.ReadFile(content, file)
 		if err != nil {
-			log.Fatalf("failed to read file: %v", err)
+			return nil, PostsData{}, fmt.Errorf("read page %q: %w", file, err)
 		}
 
-		filename := filepath.Base(file)
-		ext := filepath.Ext(filename)
+		filename := path.Base(file)
+		ext := path.Ext(filename)
 		title := strings.TrimSuffix(filename, ext)
 
 		url := "/" + title
@@ -294,7 +314,7 @@ func getPages() (map[string]Page, PostsData) {
 		var fullHTML bytes.Buffer
 		err = pageBlankTemplate.Execute(&fullHTML, PageData{Title: title, Body: body})
 		if err != nil {
-			log.Fatalf("failed to execute template: %v", err)
+			return nil, PostsData{}, fmt.Errorf("execute blank page template for %q: %w", file, err)
 		}
 
 		pages[title] = Page{Title: title, HTML: fullHTML.Bytes(), URL: url}
@@ -304,22 +324,29 @@ func getPages() (map[string]Page, PostsData) {
 	var fullHTML bytes.Buffer
 	err = postsTemplate.Execute(&fullHTML, postsData)
 	if err != nil {
-		log.Fatalf("failed to execute template: %v", err)
+		return nil, PostsData{}, fmt.Errorf("execute posts template: %w", err)
 	}
 	pages["posts"] = Page{Title: "posts", HTML: fullHTML.Bytes(), URL: "/posts"}
 
-	return pages, postsData
+	return pages, postsData, nil
 }
 
-func NewServer(Addr string) *http.Server {
+func NewServer(addr string, content fs.FS) (*http.Server, error) {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
+	static, err := fs.Sub(content, "static")
+	if err != nil {
+		return nil, fmt.Errorf("open static filesystem: %w", err)
+	}
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 
-	pages, postsData := getPages()
+	pages, postsData, err := getPages(content)
+	if err != nil {
+		return nil, err
+	}
 	for title, page := range pages {
 		mux.HandleFunc("/"+title, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
@@ -336,7 +363,10 @@ func NewServer(Addr string) *http.Server {
 		w.Write([]byte("OK"))
 	})
 
-	indexPage := getIndexPage(postsData.Posts[0])
+	indexPage, err := getIndexPage(content, postsData.Posts[0])
+	if err != nil {
+		return nil, err
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -353,8 +383,8 @@ func NewServer(Addr string) *http.Server {
 	loggedMux := loggingMiddleware(mux)
 
 	server := &http.Server{
-		Addr:    Addr,
+		Addr:    addr,
 		Handler: loggedMux,
 	}
-	return server
+	return server, nil
 }

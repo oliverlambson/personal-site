@@ -6,13 +6,38 @@ on:
       - opened
       - synchronize
       - ready_for_review
-  push:
-    branches:
-      - main
+
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
+  check:
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - run: make lint
+
+      - name: Verify native build architecture
+        run: |
+          test "$(go env GOOS)" = "linux"
+          test "$(go env GOARCH)" = "arm64"
+
+      - name: Install formatting dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: make lint
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build static binary
+        run: CGO_ENABLED=0 go build -trimpath -o personal-site ./cmd
+
+      - name: Verify static AArch64 Linux binary
+        run: |
+          description="$(file personal-site)"
+          echo "$description"
+          case "$description" in
+            *"ELF 64-bit LSB executable"*"ARM aarch64"*"statically linked"*) ;;
+            *) exit 1 ;;
+          esac

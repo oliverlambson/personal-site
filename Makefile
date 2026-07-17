@@ -30,89 +30,20 @@ dev:
 .PHONY: lint
 ## Runs linting over project
 lint:
-	npx prettier --check .
+	npx --no-install prettier --check .
 
 .PHONY: fmt
 ## Runs formatting over project
 fmt:
-	npx prettier --write .
+	npx --no-install prettier --write .
 
-# --- cd ----------------------------------------------------------------------
-export SHA ?= $(shell git rev-parse --short HEAD)
-export VERSION ?= latest
-export REGISTRY ?= registry.oliverlambson.com
-
-.PHONY: login
-## login to docker registry
-login:
-	op item get --vault oliverlambson.com docker-registry-user --field password --reveal | docker login -u docker-registry-user --password-stdin registry.oliverlambson.com
+.PHONY: test
+## Runs the test suite
+test:
+	go test ./...
 
 .PHONY: build
-## build the image for VERSION. e.g., make build VERSION=1.0
+## Builds the static personal-site binary
 build:
-	docker buildx build \
-		--file deployment/Dockerfile \
-		--tag "${REGISTRY}/personal-site:${SHA}" \
-		--tag "${REGISTRY}/personal-site:${VERSION}" \
-		--build-arg VERSION="${VERSION}" \
-		--build-arg SHA="${SHA}" \
-		--platform linux/arm64 \
-		.
-
-.PHONY: push
-## Push the image to the registry
-push: build login
-	docker push "${REGISTRY}/personal-site:${SHA}"
-	docker push "${REGISTRY}/personal-site:${VERSION}"
-
-.PHONY: deploy
-## Deploy application to server
-deploy: push
-	rsync \
-		-av \
-		-e ssh \
-		--exclude='.env' \
-		--exclude-from="deployment/.rsyncignore" \
-		deployment/ \
-		ollie@oliverlambson.com:~/stacks/personal-site/
-	ssh ollie@oliverlambson.com "bash -c 'deploy-stack personal-site'"
-
-# --- docker compose -----------------------------------------------------------
-.PHONY: up
-## Run docker compose
-up:
-	docker compose \
-		--file deployment/compose.yaml \
-		--file deployment/compose.dev.yaml \
-		up --build --detach
-	@echo "dev at: http://localhost:1960"
-
-.PHONY: down
-## Stop docker compose
-down:
-	docker compose \
-		--file deployment/compose.yaml \
-		--file deployment/compose.dev.yaml \
-	down --volumes --remove-orphans
-
-.PHONY: logs
-## Follow docker compose logs
-logs:
-	docker compose \
-		--file deployment/compose.yaml \
-		--file deployment/compose.dev.yaml \
-	logs -f
-
-# --- docker swarm -------------------------------------------------------------
-.PHONY: swarm
-## Run docker swarm stack
-swarm: build
-	docker stack deploy \
-		--detach \
-		--compose-file deployment/compose.yaml \
-		personal-site
-
-.PHONY: swarm.stop
-## Stop docker swarm stack
-swarm.stop:
-	docker stack rm personal-site
+	mkdir -p bin
+	CGO_ENABLED=0 go build -trimpath -o bin/personal-site ./cmd
